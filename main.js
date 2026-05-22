@@ -137,15 +137,186 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 5. Theme Toggle Logic
     const themeToggle = document.getElementById("theme-toggle");
+    const storedTheme = localStorage.getItem("portfolioTheme");
+    if (storedTheme === "light") {
+        document.body.classList.add("light-theme");
+        document.body.classList.remove("dark-theme");
+    } else if (storedTheme === "dark") {
+        document.body.classList.add("dark-theme");
+        document.body.classList.remove("light-theme");
+    }
+
+    const toastContainer = createToastContainer();
+    initSmoothAnchorLinks();
+    initActiveSectionHighlight();
+    initHeroTypewriter();
+    initPortfolioCounters();
+    initContactCopyEmail();
+    initScrollProgressBar();
+    updateThemeToggleLabel();
+
     if(themeToggle) {
         themeToggle.addEventListener("click", () => {
             document.body.classList.toggle("light-theme");
             document.body.classList.toggle("dark-theme");
-            if(document.body.classList.contains("light-theme")) {
-                themeToggle.innerText = "🌙";
-            } else {
-                themeToggle.innerText = "☀️";
-            }
+            localStorage.setItem("portfolioTheme", document.body.classList.contains("light-theme") ? "light" : "dark");
+            updateThemeToggleLabel();
         });
+    }
+
+    function updateThemeToggleLabel() {
+        if (!themeToggle) return;
+        themeToggle.innerText = document.body.classList.contains("light-theme") ? "🌙" : "☀️";
+    }
+
+    function createToastContainer() {
+        const container = document.createElement("div");
+        container.className = "toast-container";
+        container.setAttribute("aria-live", "polite");
+        document.body.appendChild(container);
+        return container;
+    }
+
+    function showToast(message, variant = "success") {
+        const toast = document.createElement("div");
+        toast.className = `toast ${variant}`;
+        toast.innerText = message;
+        toastContainer.appendChild(toast);
+
+        requestAnimationFrame(() => {
+            toast.classList.add("visible");
+        });
+
+        setTimeout(() => {
+            toast.classList.remove("visible");
+            toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+        }, 2800);
+    }
+
+    function initSmoothAnchorLinks() {
+        document.querySelectorAll('a[href^="#"]').forEach(link => {
+            link.addEventListener("click", (e) => {
+                const target = document.querySelector(link.getAttribute("href"));
+                if (!target) return;
+                e.preventDefault();
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
+                history.replaceState(null, "", link.getAttribute("href"));
+            });
+        });
+    }
+
+    function initActiveSectionHighlight() {
+        const navLinks = document.querySelectorAll(".nav-links a");
+        const sections = document.querySelectorAll("section[id]");
+        if (!navLinks.length || !sections.length) return;
+
+        const sectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const sectionId = entry.target.id;
+                    navLinks.forEach(link => {
+                        link.classList.toggle("active", link.hash === `#${sectionId}`);
+                    });
+                }
+            });
+        }, { threshold: 0.52 });
+
+        sections.forEach(section => sectionObserver.observe(section));
+    }
+
+    function initHeroTypewriter() {
+        const heroSubtitle = document.querySelector(".hero-subtitle");
+        if (!heroSubtitle) return;
+
+        const text = heroSubtitle.textContent.trim();
+        heroSubtitle.textContent = "";
+        let index = 0;
+        const typingSpeed = 35;
+
+        const writer = setInterval(() => {
+            heroSubtitle.textContent += text[index];
+            index += 1;
+            if (index >= text.length) {
+                clearInterval(writer);
+            }
+        }, typingSpeed);
+    }
+
+    function initPortfolioCounters() {
+        const aboutStats = document.querySelector(".about-stats");
+        if (!aboutStats) return;
+
+        const metrics = [
+            { label: "Projects Delivered", value: 18 },
+            { label: "Research Hours", value: 720 },
+            { label: "Strategy Wins", value: 12 }
+        ];
+
+        metrics.forEach(metric => {
+            const statItem = document.createElement("div");
+            statItem.className = "stat-item stat-counter";
+            statItem.innerHTML = `
+                <h3>${metric.label}</h3>
+                <p data-target="${metric.value}">0</p>
+            `;
+            aboutStats.appendChild(statItem);
+        });
+
+        const counterObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    animateCount(entry.target);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.25 });
+
+        aboutStats.querySelectorAll("[data-target]").forEach(element => {
+            counterObserver.observe(element);
+        });
+    }
+
+    function animateCount(element) {
+        const target = Number(element.dataset.target) || 0;
+        const duration = 1200;
+        const startTime = performance.now();
+
+        const step = (currentTime) => {
+            const progress = Math.min((currentTime - startTime) / duration, 1);
+            element.textContent = Math.floor(progress * target);
+            if (progress < 1) requestAnimationFrame(step);
+            else element.textContent = target;
+        };
+
+        requestAnimationFrame(step);
+    }
+
+    function initContactCopyEmail() {
+        const emailLink = document.querySelector('a[href^="mailto:"]');
+        if (!emailLink || !navigator.clipboard) return;
+
+        emailLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            const email = emailLink.href.replace("mailto:", "");
+            navigator.clipboard.writeText(email)
+                .then(() => showToast(`Email copied: ${email}`, "success"))
+                .catch(() => showToast("Unable to copy email.", "error"));
+        });
+    }
+
+    function initScrollProgressBar() {
+        const progressBar = document.createElement("div");
+        progressBar.className = "scroll-progress";
+        document.body.appendChild(progressBar);
+
+        const updateProgress = () => {
+            const scrollTop = window.scrollY;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const ratio = docHeight > 0 ? (scrollTop / docHeight) : 0;
+            progressBar.style.width = `${Math.min(100, Math.max(0, ratio * 100))}%`;
+        };
+
+        updateProgress();
+        window.addEventListener("scroll", updateProgress, { passive: true });
     }
 });
